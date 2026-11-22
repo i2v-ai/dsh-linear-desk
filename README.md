@@ -1,4 +1,8 @@
 <p align="center">
+  <strong>English</strong> | <a href="./README.zh.md">简体中文</a>
+</p>
+
+<p align="center">
   <a href="https://i2v.ai">
     <img src="https://i2v.ai/brand/folded-rabbit-light.png" alt="i2v.ai" width="96">
   </a>

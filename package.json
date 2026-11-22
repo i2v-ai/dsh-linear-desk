@@ -1,7 +1,6 @@
 {
   "name": "dsh-linear-desk",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Read Linear issues inside DeepSeek Harness without opening the Linear web app.",
   "main": "lib/index.js",
@@ -19,12 +18,18 @@
     "locale/*.json",
     "docs",
     "icon.svg",
+    "screenshots.json",
     "cordis.patch.yml",
     "README.md",
+    "README.zh.md",
     "LICENSE",
     "SECURITY.md",
     "CONTRIBUTING.md"
   ],
+  "scripts": {
+    "test": "node test/host-check.mjs && node test/locale-check.mjs",
+    "check": "node --check lib/index.js && node --check lib/client.js"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -34,9 +39,14 @@
     }
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.5 <0.3.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT",
+  "author": "i2v.ai (https://i2v.ai)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/i2v-ai/dsh-linear-desk.git"
@@ -47,9 +57,14 @@
   },
   "keywords": [
     "dsh",
-    "deepseek-harness",
     "dsh-plugin",
+    "deepseek-harness",
+    "deepseek",
     "linear",
-    "mcp"
+    "linear-app",
+    "issue-tracker",
+    "mcp",
+    "sidebar",
+    "panel"
   ]
 }
