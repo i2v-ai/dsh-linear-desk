@@ -233,7 +233,7 @@ main { flex: 1; display: flex; min-height: 0; }
   <span class="dot" id="dot" data-state="idle"></span>
   <span class="status" id="status"></span>
   <span class="spacer"></span>
-  <button class="btn ghost" id="refresh" title="刷新 (R)"></button>
+  <button class="btn ghost" id="refresh"></button>
 </header>
 
 <div class="filters">
@@ -243,19 +243,19 @@ main { flex: 1; display: flex; min-height: 0; }
   </div>
   <select id="team"></select>
   <select id="state">
-    <option value="open">未完成</option>
-    <option value="">全部状态</option>
-    <option value="backlog">Backlog</option>
-    <option value="unstarted">Todo</option>
-    <option value="started">进行中</option>
-    <option value="completed">已完成</option>
+    <option value="open"></option>
+    <option value=""></option>
+    <option value="backlog"></option>
+    <option value="unstarted"></option>
+    <option value="started"></option>
+    <option value="completed"></option>
   </select>
   <select id="priority">
-    <option value="any">全部优先级</option>
-    <option value="1">Urgent</option>
-    <option value="2">High</option>
-    <option value="3">Medium</option>
-    <option value="4">Low</option>
+    <option value="any"></option>
+    <option value="1"></option>
+    <option value="2"></option>
+    <option value="3"></option>
+    <option value="4"></option>
   </select>
   <input type="search" id="q">
   <span class="spacer"></span>
@@ -273,109 +273,68 @@ main { flex: 1; display: flex; min-height: 0; }
 <script>
 'use strict'
 
-const DICT = {
-  zh: {
-    title: 'Linear 工作台',
-    connecting: '正在连接…',
-    ok: '已连接',
-    noTool: 'Linear 工具未就绪',
-    loadFail: '读取失败',
-    count: (n) => `${n} 个 issue`,
-    empty: '没有符合条件的 issue',
-    pick: '从左侧选择一个 issue',
-    refresh: '刷新',
-    comments: '评论',
-    none: '暂无',
-    description: '描述',
-    properties: '属性',
-    parent: '父票',
-    children: '子任务',
-    relations: '关联',
-    labels: '标签',
-    attachments: '附件',
-    status: '状态',
-    priority: '优先级',
-    assignee: '负责人',
-    creator: '创建人',
-    project: '项目',
-    team: '团队',
-    due: '截止',
-    branch: '分支',
-    estimate: '估点',
-    start: '在会话中开始处理',
-    copy: '复制为 Markdown',
-    open: '在 Linear 打开',
-    started: '已把 issue 带入新会话的输入框',
-    startFail: '打开新会话失败',
-    copied: '已复制到剪贴板',
-    toolMissing: 'Linear MCP 还没连上（宿主里找不到 mcp__linear__ 工具）。请到「设置 → 插件」里检查 mcp-linear，或重启一次宿主让它重新连接。',
-    serverState: (s) => `MCP 状态：${s}`,
-    loading: '加载中…',
-    filed: '未标记',
-    noDue: '无',
-    allTeams: '全部团队',
-    search: '搜索标题或描述… ( / )',
-    assigned: '指派给我',
-    created: '我创建的',
-    imageOmitted: '[图片]',
-    unknownIssue: '无法读取该 issue（可能没有访问权限）',
-  },
-  en: {
-    title: 'Linear desk',
-    connecting: 'Connecting…',
-    ok: 'Connected',
-    noTool: 'Linear tools unavailable',
-    loadFail: 'Load failed',
-    count: (n) => `${n} issue${n === 1 ? '' : 's'}`,
-    empty: 'No issues match these filters',
-    pick: 'Pick an issue on the left',
-    refresh: 'Refresh',
-    comments: 'Comments',
-    none: 'None',
-    description: 'Description',
-    properties: 'Properties',
-    parent: 'Parent',
-    children: 'Sub-issues',
-    relations: 'Relations',
-    labels: 'Labels',
-    attachments: 'Attachments',
-    status: 'Status',
-    priority: 'Priority',
-    assignee: 'Assignee',
-    creator: 'Creator',
-    project: 'Project',
-    team: 'Team',
-    due: 'Due',
-    branch: 'Branch',
-    estimate: 'Estimate',
-    start: 'Start work in a session',
-    copy: 'Copy as Markdown',
-    open: 'Open in Linear',
-    started: 'Issue placed in a new session draft',
-    startFail: 'Could not start a session',
-    copied: 'Copied to clipboard',
-    toolMissing: 'Linear MCP is not connected (no mcp__linear__ tools in the host). Check mcp-linear under Settings → Plugins, or restart the host to reconnect.',
-    serverState: (s) => `MCP status: ${s}`,
-    loading: 'Loading…',
-    filed: 'Unfiled',
-    noDue: 'None',
-    allTeams: 'All teams',
-    search: 'Search title or description… ( / )',
-    assigned: 'Assigned to me',
-    created: 'Created by me',
-    imageOmitted: '[image]',
-    unknownIssue: 'This issue could not be read (no access?)',
-  },
+// 文案不写死在页面里：每种语言一个 assets/i18n/<lang>.json，新增语言只要加一个文件。
+// 加载失败时回退到英文，再不行就把 key 原样显示，绝不因为缺翻译白屏。
+const FALLBACK_LANG = 'en'
+const DICTS = {}
+let dict = {}
+let languages = []
+
+const requestedLang = (new URLSearchParams(location.search).get('lang') || '').toLowerCase()
+let lang = pickLang(requestedLang || navigator.language)
+
+function pickLang(tag) {
+  const base = String(tag || '').toLowerCase().split('-')[0]
+  if (languages.includes(base)) return base
+  if (languages.includes(FALLBACK_LANG)) return FALLBACK_LANG
+  return languages[0] || base || FALLBACK_LANG
 }
 
-const initialLang = new URLSearchParams(location.search).get('lang')
-let lang = initialLang === 'en' || initialLang === 'zh'
-  ? initialLang
-  : (/^en\b/i.test(navigator.language) ? 'en' : 'zh')
+/** 取当前语言的文案；`{x}` 由位置参数或具名参数替换 */
 const t = (key, ...args) => {
-  const dict = DICT[lang] || DICT.zh
-  const value = dict[key] ?? DICT.zh[key] ?? key
-  return typeof value === 'function' ? value(...args) : value
+  const raw = dict[key] ?? (DICTS[FALLBACK_LANG] || {})[key] ?? key
+  if (typeof raw !== 'string') return String(raw)
+  let index = 0
+  return raw.replace(/\{(\w+)\}/g, (whole, name) => {
+    const named = args.length === 1 && args[0] && typeof args[0] === 'object' ? args[0][name] : undefined
+    if (named !== undefined) return String(named)
+    const value = args[index]
+    index += 1
+    return value === undefined ? whole : String(value)
+  })
+}
+
+async function loadLocale(next) {
+  const wanted = pickLang(next)
+  if (!DICTS[wanted]) {
+    try {
+      const res = await fetch(`assets/i18n/${wanted}.json`, { credentials: 'same-origin' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      DICTS[wanted] = await res.json()
+    } catch (error) {
+      console.error('[linear-desk] 语言包加载失败', wanted, error)
+      DICTS[wanted] = {}
+    }
+  }
+  if (!DICTS[FALLBACK_LANG] && wanted !== FALLBACK_LANG) {
+    try {
+      const res = await fetch(`assets/i18n/${FALLBACK_LANG}.json`, { credentials: 'same-origin' })
+      if (res.ok) DICTS[FALLBACK_LANG] = await res.json()
+    } catch { /* 忽略：t() 会退化成显示 key */ }
+  }
+  lang = wanted
+  dict = DICTS[wanted] || {}
+  return lang
+}
+
+/** 问宿主有哪些语言包，避免去猜语言代码 */
+async function loadLanguages() {
+  try {
+    const body = await api('api/locales')
+    if (Array.isArray(body.locales) && body.locales.length) languages = body.locales
+  } catch { /* 拿不到就按请求参数/浏览器语言试一次 */ }
+  if (!languages.length) languages = [FALLBACK_LANG]
+  return languages
 }
 
 const state = { view: 'assigned', issues: [], selected: null, toolsReady: true, collapsed: new Set(), detail: null }
@@ -662,6 +621,34 @@ function toast(text) {
 
 const GROUP_ORDER = ['started', 'unstarted', 'backlog', 'completed', 'canceled']
 
+// Linear 的默认状态名（英文）。工作区里自定义的状态（如 In Review）不翻译，原样显示。
+const DEFAULT_STATUS_NAMES = { backlog: 'Backlog', unstarted: 'Todo', started: 'In Progress', completed: 'Done', canceled: 'Canceled' }
+const STATUS_KEYS = { backlog: 'statusBacklog', unstarted: 'statusUnstarted', started: 'statusStarted', completed: 'statusCompleted', canceled: 'statusCanceled' }
+
+// Linear 的优先级同样有固定名字，1=Urgent…4=Low，0 表示未设置
+const DEFAULT_PRIORITY_NAMES = { 1: 'Urgent', 2: 'High', 3: 'Medium', 4: 'Low', 0: 'No priority' }
+const PRIORITY_KEYS = { 1: 'priorityUrgent', 2: 'priorityHigh', 3: 'priorityMedium', 4: 'priorityLow', 0: 'priorityNone' }
+
+/** 优先级展示名：同样只翻译 Linear 的内置名字 */
+function priorityLabel(issue) {
+  const raw = issue && issue.priority
+  const value = typeof raw === 'object' && raw ? raw.value : raw
+  const n = typeof value === 'number' ? value : 0
+  const name = typeof raw === 'object' && raw ? raw.name : raw
+  const custom = typeof name === 'string' && name.trim() ? name.trim() : ''
+  if (custom && custom.toLowerCase() !== String(DEFAULT_PRIORITY_NAMES[n] || '').toLowerCase()) return custom
+  return t(PRIORITY_KEYS[n] || 'priorityNone')
+}
+
+/** 状态展示名：默认状态跟随界面语言，自定义状态保留 Linear 里的名字 */
+function statusLabel(statusType, name) {
+  const fallback = DEFAULT_STATUS_NAMES[statusType]
+  const custom = typeof name === 'string' && name.trim() ? name.trim() : ''
+  if (custom && custom.toLowerCase() !== String(fallback || '').toLowerCase()) return custom
+  const key = STATUS_KEYS[statusType]
+  return key ? t(key) : (custom || statusType || '—')
+}
+
 function groupIssues(issues) {
   const buckets = new Map()
   for (const issue of issues) {
@@ -671,7 +658,7 @@ function groupIssues(issues) {
   }
   return GROUP_ORDER
     .filter((type) => buckets.has(type))
-    .map((type) => ({ type, name: nameOf(buckets.get(type)[0].status) || type, issues: buckets.get(type) }))
+    .map((type) => ({ type, name: statusLabel(type, nameOf(buckets.get(type)[0].status)), issues: buckets.get(type) }))
 }
 
 function renderList() {
@@ -806,10 +793,10 @@ function linkRow(issue, externalUrl) {
 
 function relationBlock(kind, issues) {
   if (!issues || !issues.length) return null
-  const label = kind === 'blocks' ? (lang === 'zh' ? '阻塞' : 'Blocks')
-    : kind === 'blockedBy' ? (lang === 'zh' ? '被阻塞' : 'Blocked by')
-    : kind === 'relatedTo' ? (lang === 'zh' ? '相关' : 'Related')
-    : (lang === 'zh' ? '重复' : 'Duplicate')
+  const label = kind === 'blocks' ? t('blocks')
+    : kind === 'blockedBy' ? t('blockedBy')
+    : kind === 'relatedTo' ? t('relatedTo')
+    : t('duplicate')
   return el('div', { class: 'section' }, [
     el('h2', { text: `${t('relations')} · ${label}` }),
     el('div', { class: 'links' }, issues.map((issue) => linkRow(issue, issue.url))),
@@ -843,8 +830,8 @@ function renderDetail(body) {
 
   const labels = (issue.labels || []).map((label) => el('span', { class: 'label-chip' }, [el('i'), nameOf(label)]))
   const props = el('div', { class: 'props' }, [
-    propRow(t('status'), [statusIcon(issue.statusType, 13), el('span', { text: nameOf(issue.status) || issue.statusType || '—' })]),
-    propRow(t('priority'), [priorityIcon(issue, 13), el('span', { text: nameOf(issue.priority) || t('none') })]),
+    propRow(t('status'), [statusIcon(issue.statusType, 13), el('span', { text: statusLabel(issue.statusType, nameOf(issue.status)) })]),
+    propRow(t('priority'), [priorityIcon(issue, 13), el('span', { text: priorityLabel(issue) })]),
     propRow(t('assignee'), nameOf(issue.assignee) ? [avatar(nameOf(issue.assignee)), el('span', { text: nameOf(issue.assignee) })] : null),
     propRow(t('team'), nameOf(issue.team) || null),
     propRow(t('project'), nameOf(issue.project) || null),
@@ -941,7 +928,7 @@ function issueMarkdown(issue, body) {
   const lines = [`# ${issueId(issue)} ${issue.title || ''}`, '']
   const meta = [
     nameOf(issue.status) ? `${t('status')}: ${nameOf(issue.status)}` : '',
-    nameOf(issue.priority) && nameOf(issue.priority) !== 'No priority' ? `${t('priority')}: ${nameOf(issue.priority)}` : '',
+    priorityLabel(issue) !== t('priorityNone') ? `${t('priority')}: ${priorityLabel(issue)}` : '',
     nameOf(issue.assignee) ? `${t('assignee')}: ${nameOf(issue.assignee)}` : '',
     nameOf(issue.team) ? `${t('team')}: ${nameOf(issue.team)}` : '',
     nameOf(issue.project) ? `${t('project')}: ${nameOf(issue.project)}` : '',
@@ -1019,21 +1006,39 @@ async function loadBootstrap() {
   }
 }
 
-function applyLang(next) {
-  if (next !== 'zh' && next !== 'en') return
-  lang = next
+/** 把当前语言包应用到所有静态文案上；新增语言不需要改这里 */
+function applyLang() {
   document.documentElement.lang = lang
   document.title = t('title')
   $('refresh').textContent = t('refresh')
+  $('refresh').title = t('refreshHint')
   $('q').placeholder = t('search')
   $('tab-assigned').textContent = t('assigned')
   $('tab-created').textContent = t('created')
   const stateSelect = $('state')
-  stateSelect.options[0].textContent = lang === 'zh' ? '未完成' : 'Open'
-  stateSelect.options[1].textContent = lang === 'zh' ? '全部状态' : 'All states'
-  stateSelect.options[5].textContent = lang === 'zh' ? '已完成' : 'Done'
+  // 选项文案一律按 value 从语言包取，HTML 里不留任何硬编码文字
+  const stateText = {
+    open: t('stateOpen'),
+    '': t('stateAll'),
+    backlog: t('statusBacklog'),
+    unstarted: t('statusUnstarted'),
+    started: t('statusStarted'),
+    completed: t('statusCompleted'),
+  }
+  for (const option of stateSelect.options) {
+    if (option.value in stateText) option.textContent = stateText[option.value]
+  }
   const prioritySelect = $('priority')
-  prioritySelect.options[0].textContent = lang === 'zh' ? '全部优先级' : 'Any priority'
+  const priorityText = {
+    any: t('priorityAny'),
+    1: t('priorityUrgent'),
+    2: t('priorityHigh'),
+    3: t('priorityMedium'),
+    4: t('priorityLow'),
+  }
+  for (const option of prioritySelect.options) {
+    if (option.value in priorityText) option.textContent = priorityText[option.value]
+  }
   $('team').options[0] && ($('team').options[0].textContent = t('allTeams'))
   renderList()
   if (state.detail) renderDetail(state.detail)
@@ -1046,7 +1051,10 @@ addEventListener('message', (event) => {
   if (data.type === 'linear-desk:theme') {
     document.documentElement.dataset.theme = data.scheme === 'dark' ? 'dark' : 'light'
   } else if (data.type === 'linear-desk:locale') {
-    applyLang(data.lang)
+    // 宿主切换语言：语言包可能还没加载过，加载完再重绘
+    const target = pickLang(data.lang)
+    if (target === lang && Object.keys(dict).length) return
+    loadLocale(target).then(applyLang)
   }
 })
 
@@ -1090,8 +1098,18 @@ addEventListener('keydown', (event) => {
   selectIssue(ids[next])
 })
 
-applyLang(lang)
-checkHealth().then(loadBootstrap).then(loadIssues)
+// 启动顺序：先问宿主支持哪些语言，再加载语言包并渲染文案，最后才取数据，
+// 这样首屏不会出现「先英文后中文」的闪烁。
+async function boot() {
+  await loadLanguages()
+  await loadLocale(lang)
+  applyLang()
+  await checkHealth()
+  await loadBootstrap()
+  await loadIssues()
+}
+
+boot()
 </script>
 </body>
 </html>

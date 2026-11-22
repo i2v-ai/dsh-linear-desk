@@ -2,6 +2,6 @@
   "meta": {
     "title": "Linear 工作台",
     "description": "在 DeepSeek Harness 里直接看待办：指派给我的 Linear issue、状态与优先级一览，并能一键把 issue 带进新会话开始处理。",
-    "detail": "docs/DETAIL.md"
+    "detail": "docs/DETAIL.zh.md"
   }
 }

@@ -1,46 +1,144 @@
-# dsh-linear-desk
+<p align="center">
+  <a href="https://i2v.ai">
+    <img src="https://i2v.ai/brand/folded-rabbit-light.png" alt="i2v.ai" width="96">
+  </a>
+</p>
 
-在 DeepSeek Harness 里直接查看 Linear issue，不用切到浏览器标签页。
+<h1 align="center">dsh-linear-desk</h1>
 
-## 它是什么
+<p align="center">
+  Read Linear issues inside DeepSeek Harness: a sidebar desk panel backed by the Linear MCP tools.<br>
+  <a href="https://i2v.ai">Website</a> ·
+  <a href="https://github.com/i2v-ai">Organization</a> ·
+  <a href="./docs/DETAIL.md">Panel reference</a>
+</p>
 
-一个 DSH bundle 插件，包含三部分：
+<p align="center">
+  <img alt="DSH bundle" src="https://img.shields.io/badge/DSH-bundle-6366f1?style=flat-square">
+  <img alt="Languages" src="https://img.shields.io/badge/languages-English%20·%20中文-0ea5e9?style=flat-square">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">
+</p>
 
-| 部分 | 文件 | 作用 |
-|---|---|---|
-| Host 半边 | `lib/index.js` | 挂 `/linear-desk/*` HTTP 路由，把面板请求翻译成 `mcp__linear__*` 工具调用 |
-| Client 半边 | `lib/client.js` | 注册侧栏入口（`sidebar.panellist`）和中央面板（`main` key `linear-desk`） |
-| 面板页面 | `assets/panel.html` | 单文件 HTML/CSS/JS，在中央面板的 iframe 里渲染列表与详情 |
+<br>
 
-## 依赖
+No browser tab, no bookmark. Open the desk from the sidebar, scan the issues assigned to you, read the description and comments, then hand the issue to a session with one click.
 
-复用 profile 里已装的 `mcp-linear`（`@deepseek-ai/dsh-mcp-client`，`serverName: linear`）。插件**不**自己建 Linear 连接，OAuth 与 token 刷新都交给 mcp-linear。
+## What it does
 
-如果 MCP 没连上，面板顶部显示红色状态与提示，而不是白屏。
+| Part | File | Role |
+| --- | --- | --- |
+| Host half | `lib/index.js` | Serves `/linear-desk/*`, translates panel requests into `mcp__linear__*` tool calls |
+| Client half | `lib/client.js` | Registers the sidebar entry (`sidebar.panellist`) and the main panel (`main`, key `linear-desk`) |
+| Panel page | `assets/panel.html` | Single-file HTML/CSS/JS rendered inside the panel iframe |
+| Translations | `assets/i18n/*.json` | Flat key/value dictionaries, one file per language |
 
-## 安装
+- Sidebar entry **Linear desk**, main panel with filters, a status-grouped issue list, and a detail column.
+- Default view: **assigned to me + open**, sorted by status, then priority, then last update.
+- Detail shows description, recent comments, parent issue, sub-issues, relations, attachments, and the full property grid.
+- **Start work in a session** turns the issue into a session draft. The draft is pre-filled, never auto-sent.
+- **Copy as Markdown** produces a pasteable digest for a prompt or a handoff note.
+
+## Requirements
+
+Node.js 20 or newer, plus a DeepSeek Harness profile where the Linear MCP server is configured (see [Dependencies](#dependencies)).
+
+## Install
 
 ```bash
-# 在 DSH 里通过 plugin_manager 安装（target 指向本目录绝对路径）
-plugin_manager install_bundle /path/to/dsh-linear-desk
+git clone https://github.com/i2v-ai/dsh-linear-desk.git
 ```
 
-安装后若返回 `restart-required`，插件通常已热加载；改完 Host 代码可用「停用 → 启用」热重载。
+Then, inside DeepSeek Harness, install the bundle by pointing `plugin_manager` at the checkout:
 
-## 接口
+```
+plugin_manager install_bundle /absolute/path/to/dsh-linear-desk
+```
 
-| 接口 | 背后的 MCP 工具 |
-|---|---|
-| `GET /linear-desk/` | 面板页面 |
-| `GET /linear-desk/api/health` | 无（读 `tools` / `mcpManager` 注册状态） |
-| `GET /linear-desk/api/bootstrap` | `whoami`、`list_teams` |
-| `GET /linear-desk/api/issues` | `list_issues` |
-| `GET /linear-desk/api/issue?id=` | `get_issue`、`list_comments` |
+The install may report `application: "restart-required"` with `restartReason: "unmanaged-plugin"` even though the plugin is already live. Verify with `plugin_manager list_plugins` — the entry `include:linear-desk` should show `enabled: true` and `fiberPhase: active`.
 
-## 测试
+After editing Host code, toggle the plugin off and on again to hot-reload:
+
+```
+plugin_manager set_plugin include:linear-desk enabled=false
+plugin_manager set_plugin include:linear-desk enabled=true
+```
+
+Replacing the installed JavaScript itself needs a host restart.
+
+## Dependencies
+
+The plugin reuses the `mcp-linear` server already configured in the profile (`@deepseek-ai/dsh-mcp-client`, `serverName: linear`). It never opens its own Linear connection, so OAuth and token refresh stay in `mcp-linear`.
+
+```yaml
+- insert:
+    - id: mcp-linear
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: linear
+        transport: stdio
+        command: npx
+        args: ['-y', 'mcp-remote', 'https://mcp.linear.app/mcp']
+```
+
+If the tools are missing, the panel header shows a red status and an explanation instead of an empty page. A common cause is `spawn npx ENOENT` in the host log: the desktop app cannot resolve `npx` on `PATH`. Check `mcp-linear` under **Settings → Plugins**, or restart the host to reconnect.
+
+## Panel API
+
+The panel page calls these routes on the host half. Everything is read-only in this version.
+
+| Route | Backed by MCP tool | Notes |
+| --- | --- | --- |
+| `GET /linear-desk/` | — | Panel page |
+| `GET /linear-desk/api/health` | — | Reads `tools` / `mcpManager` registration state |
+| `GET /linear-desk/api/locales` | — | Returns `{ locales, fallback }` |
+| `GET /linear-desk/api/bootstrap` | `whoami`, `list_teams` | Workspace and team list |
+| `GET /linear-desk/api/issues` | `list_issues` | `view`, `team`, `state`, `priority`, `query`, `limit` |
+| `GET /linear-desk/api/issue?id=` | `get_issue`, `list_comments` | Plus parent and sub-issue lookups |
+
+`state=open` is a value the panel synthesises: Linear's `state` argument accepts a single state, so the host fetches a larger page and filters out completed and canceled issues locally.
+
+## Capability and limits
+
+- Read-only. No status change, comment, assignment, or issue creation in this version.
+- In-memory cache only: lists for 60 seconds, details for 30 seconds, workspace bootstrap for 10 minutes.
+- Panel calls run through `ctx.tools.execute` without an agent or a session log, so nothing lands in a conversation trajectory.
+- One MCP connection is shared with the agent. Refreshes are throttled because `mcp-remote` is single-client.
+- Issues in another workspace (for example a `DAW-` parent) resolve to an ID link only — the current credentials cannot read them.
+
+## Languages
+
+English and Chinese ship today. A new language is one JSON file plus one line of code:
+
+1. Copy `assets/i18n/en.json` to `assets/i18n/<lang>.json` and translate the values. Keep the keys and the `{n}` / `{s}` placeholders.
+2. Add the code to `LOCALES` in `lib/index.js` and to `LABELS` in `lib/client.js`.
+
+The panel asks the host which languages exist and falls back to English, then to the raw key, so a missing translation never blanks the UI.
+
+## Tests
 
 ```bash
+# Host routes driven by a stub ctx: registration, health, and the missing-tool 502 path
 ELECTRON_RUN_AS_NODE=1 "$DSH_NODE_EXECUTABLE" test/host-check.mjs
+
+# Every language aligned with English, no empty values, no unknown keys used by the panel
+ELECTRON_RUN_AS_NODE=1 "$DSH_NODE_EXECUTABLE" test/locale-check.mjs
 ```
 
-用假 ctx 驱动路由，验证注册、health、以及工具缺失时的 502 降级。
+`DSH_NODE_EXECUTABLE` is exported by the running host. Without it, use any Node.js 20+ binary.
+
+## For AI agents
+
+- Panel and dependency reference: [`docs/DETAIL.md`](./docs/DETAIL.md)
+- Host contract: `lib/index.js` (routes, MCP tool names, cache TTLs)
+- Client contract: `lib/client.js` (slot registrations, `startSession` handoff)
+
+## Related repositories
+
+| Surface | Repository |
+| --- | --- |
+| i2v.ai developer hub | [i2v-agent-tools](https://github.com/i2v-ai/i2v-agent-tools) |
+| API examples | [i2v-api-examples](https://github.com/i2v-ai/i2v-api-examples) |
+
+## License
+
+MIT. See [LICENSE](./LICENSE). Report vulnerabilities privately — see [SECURITY.md](./SECURITY.md).

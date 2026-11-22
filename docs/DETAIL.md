@@ -1,43 +1,53 @@
-![Linear 工作台面板：左侧 issue 列表，右侧 issue 详情与「在会话中开始处理」按钮](preview.svg)
+![Linear desk panel: issue list on the left, issue detail and the start-work button on the right](preview.svg)
 
-# Linear 工作台
+# Linear desk
 
-在 DeepSeek Harness 里直接查看指派的 Linear issue，不用切浏览器标签页。
+Read the Linear issues assigned to you inside DeepSeek Harness, without switching to a browser tab.
 
-## 它做什么
+## What it does
 
-- 侧栏新增一个 **Linear 工作台** 入口（待办清单图标，order 7）。
-- 主区域是一个三栏面板：顶部筛选项、左侧 issue 列表、右侧详情（描述 + 最近 15 条评论）。
-- 默认视图是 **指派给我 + 未完成**，按「状态 → 优先级 → 更新时间」排序。
-- 详情里点 **在会话中开始处理**：把 issue 编号、标题、状态、链接和描述拼成一段草稿，开一个新会话并预填到输入框 —— **不会自动发送**，你补完自己的话再发。
+- Adds a **Linear desk** entry to the sidebar (checklist icon, order 7).
+- The main area is a three-part panel: filters on top, issue list on the left, detail (description plus the latest 15 comments) on the right.
+- The default view is **assigned to me + open**, sorted by status, then priority, then last update.
+- The list groups issues by status, the way Linear does, with collapsible headers and a per-group count.
+- Detail renders a Linear-style property grid, plus parent issue, sub-issues with progress, relations, attachments, and the comment thread.
+- **Start work in a session** builds a draft from the issue key, title, status, URL, and description, then opens a new session with that draft pre-filled. It does **not** send the message; you finish the wording yourself.
+- **Copy as Markdown** produces the same digest on the clipboard.
 
-## 它不做什么
+## What it does not do
 
-- 不写 Linear：没有改状态、加评论、改指派、建 issue 的入口（这一版只读）。
-- 不落盘：所有缓存都在内存里，进程重启即失效。
-- 不碰会话记录：面板取数走 `ctx.tools.execute` 且不传会话，所以不会出现在任何对话的 trajectory 里。
+- No writes: no status change, comment, reassignment, or issue creation. This version is read-only.
+- No persistence: every cache is in memory and dies with the process.
+- No session footprint: panel reads go through `ctx.tools.execute` without a session, so they never appear in a conversation trajectory.
 
-## 数据从哪来
+## Where the data comes from
 
-复用已有的 `mcp-linear` 连接（`mcp__linear__*` 工具），不在插件里另建一条 Linear 连接，因此 OAuth 登录、token 刷新都由 mcp-linear 负责。
+The plugin reuses the existing `mcp-linear` connection (`mcp__linear__*` tools) instead of opening its own Linear client, so OAuth and token refresh stay in `mcp-linear`.
 
-面板页面通过 `/linear-desk/api/*` 取数，宿主半边把请求翻译成对 MCP 工具的调用：
+The panel page fetches from `/linear-desk/api/*`, and the host half translates each request into MCP tool calls:
 
-| 接口 | 背后的 MCP 工具 |
-|---|---|
-| `GET /linear-desk/api/health` | 无（读 `tools` / `mcpManager` 的注册状态） |
-| `GET /linear-desk/api/bootstrap` | `whoami`、`list_teams` |
+| Route | Backed by MCP tool |
+| --- | --- |
+| `GET /linear-desk/api/health` | None — reads `tools` / `mcpManager` registration state |
+| `GET /linear-desk/api/locales` | None — returns the shipped language list |
+| `GET /linear-desk/api/bootstrap` | `whoami`, `list_teams` |
 | `GET /linear-desk/api/issues?view=&team=&state=&priority=&query=` | `list_issues` |
+| `GET /linear-desk/api/issue?id=` | `get_issue`, `list_comments`, plus a parent lookup and `list_issues({ parentId })` for sub-issues |
 
-状态筛选里的 **未完成** 是面板自己合成的（`state=open`）：Linear 的 `state` 参数只接受单一状态，表达不了"非 Done"，所以宿主不下发这个条件，而是多取一些结果后按 `statusType` 在本地过滤掉 completed / canceled。
-| `GET /linear-desk/api/issue?id=` | `get_issue`、`list_comments` |
+The **Open** filter (`state=open`) is synthesised by the panel. Linear's `state` argument accepts a single state and cannot express "not Done", so the host does not send it: it fetches a larger page and filters out completed and canceled issues locally by `statusType`.
 
-## 依赖与失败表现
+Parent issues in another workspace (a `DAW-306` parent, for example) cannot be read with the current credentials. The panel degrades to an ID link instead of failing the whole detail view.
 
-依赖 profile 里已装的 `mcp-linear`（`@deepseek-ai/dsh-mcp-client`，`serverName: linear`）。
+## Dependencies and failure behaviour
 
-如果 MCP 没连上（例如宿主进程的 PATH 里找不到 `npx`，日志里会出现 `mcp-client(linear): ... spawn npx ENOENT`），面板顶部会显示红色状态与一条提示，列出面板仍可读但没有数据的说明，而不是白屏。此时的处理方式：到「设置 → 插件」检查 mcp-linear，或重启宿主让它重新连接。
+Requires `mcp-linear` in the profile (`@deepseek-ai/dsh-mcp-client`, `serverName: linear`).
 
-## 设置
+When the MCP server is not connected — for example the host process cannot find `npx`, logged as `mcp-client(linear): ... spawn npx ENOENT` — the panel header turns red and shows an explanation rather than an empty page. The fix is to check `mcp-linear` under **Settings → Plugins**, or restart the host so it reconnects.
 
-这一版没有可配置项，`cordis.patch.yml` 不传 config。团队筛选、状态筛选、优先级筛选都在面板里即时生效，不做持久化。
+## Languages
+
+English and Chinese ship today. Translations live in `assets/i18n/*.json` as flat key/value files; the panel asks the host which languages exist and falls back to English, then to the raw key. Adding a language means adding a JSON file and one line in `LOCALES` / `LABELS`.
+
+## Settings
+
+This version has no configurable options and `cordis.patch.yml` passes no config. Team, state, and priority filters apply immediately in the panel and are not persisted.
