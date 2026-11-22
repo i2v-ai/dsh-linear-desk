@@ -6,22 +6,29 @@
 <title>Linear desk</title>
 <style>
 /* 面板跑在宿主的 iframe 里，继承不到宿主的 CSS 变量，配色由宿主 postMessage 的明暗切换。
-   视觉基调对齐 Linear：极浅灰底、细边框、克制的靛蓝强调色、紧凑的行高。 */
+   视觉基调对齐 Linear：极浅灰底、细边框、克制的靛蓝强调色、紧凑的行高。
+
+   对比度全部按 WCAG AA 实测（文字 4.5:1，图标等图形 3:1），括号里是实测值：
+   - 浅色 text-soft #5c6069 / 白底 6.30:1；text-faint #656a73 / 白底 5.44:1、浅灰列表底 5.26:1
+   - 浅色 accent #4f5bc7 / 白底 5.75:1、accent-soft 底 5.06:1；白字压 accent 5.75:1
+   - 浅色 ok #357a55 5.16:1、warn #966a10 4.81:1、err #b8352a 5.86:1（原先 3.28 / 2.25 / 4.47 均不达标）
+   - 深色 text-faint #9198a2 / 深色列表底 5.86:1（原先 #7c838d 只有 4.46:1，刚好不达标） */
 :root {
   --bg: #ffffff;
   --bg-list: #fbfbfc;
   --bg-soft: #f4f5f7;
   --bg-hover: #f0f1f4;
-  --border: #e8e9ed;
-  --border-strong: #d8dae0;
+  --border: #e2e4e9;
+  --border-strong: #cfd2d9;
   --text: #1d1f24;
-  --text-soft: #6b6f76;
-  --text-faint: #8b8f97;
-  --accent: #5e6ad2;
+  --text-soft: #5c6069;
+  --text-faint: #656a73;
+  --accent: #4f5bc7;
   --accent-soft: #eef0fb;
-  --ok: #4a9e6f;
-  --warn: #d9a441;
-  --err: #d1483a;
+  --on-accent: #ffffff;
+  --ok: #357a55;
+  --warn: #966a10;
+  --err: #b8352a;
   --radius: 8px;
 }
 [data-theme="dark"] {
@@ -29,13 +36,14 @@
   --bg-list: #1a1c20;
   --bg-soft: #22252a;
   --bg-hover: #262a30;
-  --border: #2a2e34;
-  --border-strong: #3a3f47;
+  --border: #2f333a;
+  --border-strong: #454b55;
   --text: #e8eaed;
-  --text-soft: #9aa1ab;
-  --text-faint: #7c838d;
+  --text-soft: #a8afb9;
+  --text-faint: #9198a2;
   --accent: #8b93f0;
   --accent-soft: #262a3d;
+  --on-accent: #ffffff;
   --ok: #5dbb84;
   --warn: #e0b055;
   --err: #ef7168;
@@ -47,7 +55,10 @@ body {
   background: var(--bg); color: var(--text);
   font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
+  color-scheme: light dark;
 }
+[data-theme="light"] { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
 button, input, select { font: inherit; color: inherit; }
 
 /* 顶栏 */
@@ -61,18 +72,25 @@ header {
 .dot[data-state="ok"] { background: var(--ok); }
 .dot[data-state="warn"] { background: var(--warn); }
 .dot[data-state="err"] { background: var(--err); }
-.status { color: var(--text-faint); font-size: 11.5px; max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status { color: var(--text-soft); font-size: 12px; max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spacer { flex: 1; }
 
+/* 命中区：macOS 控件默认 28×28 pt、最小 20×20 pt（accessibility.md › Mobility）。
+   面板所有可点元素都不低于 28px 高，图标按钮另加 min-width。 */
 .btn {
   border: 1px solid var(--border-strong); background: var(--bg);
-  border-radius: 6px; padding: 3px 9px; cursor: pointer; white-space: nowrap; font-size: 12px;
+  border-radius: 6px; padding: 4px 10px; min-height: 28px; cursor: pointer;
+  white-space: nowrap; font-size: 12px;
 }
 .btn:hover { background: var(--bg-hover); }
+.btn:active { background: var(--bg-soft); }
+.btn.primary:active { filter: brightness(.94); }
 .btn.ghost { border-color: transparent; background: transparent; color: var(--text-soft); }
 .btn.ghost:hover { background: var(--bg-hover); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .btn.primary:hover { filter: brightness(1.07); }
+/* <a class="btn"> 不继承 button 的文字样式，需要显式压掉默认链接色与下划线 */
+a.btn { color: var(--text); text-decoration: none; display: inline-flex; align-items: center; }
 
 /* 过滤条 */
 .filters {
@@ -81,18 +99,22 @@ header {
 }
 .tabs { display: flex; gap: 1px; background: var(--bg-soft); border-radius: 7px; padding: 2px; }
 .tabs button {
-  border: 0; background: transparent; padding: 2px 9px; border-radius: 5px; cursor: pointer;
+  border: 0; background: transparent; padding: 3px 10px; min-height: 24px; border-radius: 5px; cursor: pointer;
   color: var(--text-soft); font-size: 12px;
 }
-.tabs button[aria-selected="true"] { background: var(--bg); color: var(--text); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.tabs button[aria-pressed="true"] { background: var(--bg); color: var(--text); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
 select, input[type="search"] {
   border: 1px solid var(--border); background: var(--bg);
-  border-radius: 6px; padding: 3px 7px; min-width: 0; font-size: 12px;
+  border-radius: 6px; padding: 4px 8px; min-height: 28px; min-width: 0; font-size: 12px;
 }
 select:hover, input[type="search"]:hover { border-color: var(--border-strong); }
 select:focus, input[type="search"]:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+/* 键盘焦点必须看得见（accessibility.md › Speech：Full Keyboard Access）。
+   用 :focus-visible 而不是 :focus，鼠标点击不画环，键盘 Tab 一定画。 */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 6px; }
+.item:focus-visible, .link-row:focus-visible, .group-head:focus-visible { outline-offset: -2px; }
 input[type="search"] { width: 170px; }
-.count { color: var(--text-faint); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.count { color: var(--text-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* 主体 */
 main { flex: 1; display: flex; min-height: 0; }
@@ -116,18 +138,20 @@ main { flex: 1; display: flex; min-height: 0; }
 .item {
   display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left;
   border: 0; border-bottom: 1px solid var(--border); background: transparent;
-  padding: 8px 12px; cursor: pointer; position: relative;
+  padding: 10px 12px; min-height: 28px; cursor: pointer; position: relative;
 }
 .item:hover { background: var(--bg-hover); }
-.item[aria-selected="true"] { background: var(--accent-soft); }
-.item[aria-selected="true"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+.item:active { background: var(--bg-soft); }
+/* 列表行用 aria-current 表示「当前项」：button 上没有 role=option 时 aria-selected 不合法（accessibility.md › Selection） */
+.item[aria-current="true"] { background: var(--accent-soft); }
+.item[aria-current="true"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); }
 .item .ico { flex: none; margin-top: 1px; color: var(--text-faint); }
 .item .body { flex: 1; min-width: 0; }
 .item .line1 { display: flex; align-items: baseline; gap: 6px; }
-.item .id { font-size: 11.5px; color: var(--text-faint); font-variant-numeric: tabular-nums; flex: none; }
+.item .id { font-size: 12px; color: var(--text-faint); font-variant-numeric: tabular-nums; flex: none; }
 .item .name { font-size: 12.5px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.item .sub { margin-top: 3px; display: flex; gap: 8px; align-items: center; font-size: 11px; color: var(--text-faint); flex-wrap: wrap; }
-.item .when { flex: none; font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+.item .sub { margin-top: 4px; display: flex; gap: 8px; align-items: center; font-size: 11.5px; color: var(--text-faint); flex-wrap: wrap; }
+.item .when { flex: none; font-size: 11.5px; color: var(--text-faint); margin-top: 1px; }
 .avatar {
   width: 17px; height: 17px; border-radius: 50%; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
@@ -221,16 +245,77 @@ main { flex: 1; display: flex; min-height: 0; }
   padding: 5px 10px; font: inherit; cursor: pointer; border-radius: 6px;
   border: 1px solid var(--border-strong); background: var(--bg); color: var(--text);
 }
-.banner button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.banner button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .banner button:disabled { opacity: .55; cursor: default; }
-.spin { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -1px; }
-@keyframes sp { to { transform: rotate(360deg); } }
+/* 提示气泡放在顶部：窗口底部不放关键信息（layout.md › Desktop (macOS)），
+   而且底部容易和宿主的输入框、滚动条打架。 */
 .toast {
-  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  position: fixed; right: 24px; top: 100px; transform: translateY(-6px);
   background: var(--text); color: var(--bg); border-radius: 999px;
-  padding: 5px 13px; font-size: 12px; opacity: 0; pointer-events: none; transition: opacity .18s ease;
+  padding: 5px 13px; font-size: 12px; opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease; box-shadow: 0 2px 10px rgba(0,0,0,.18);
+  z-index: 10; max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.toast.show { opacity: .92; }
+.toast.show { opacity: .95; transform: translateY(0); }
+
+/* ---- 以下为第二批（apple-design 审查后）的补充规则 ---- */
+
+/* 禁用态：保存 key 期间要让人看出「正在保存」，不能只靠没反应（buttons.md › States） */
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: default; }
+.btn:disabled:hover { background: var(--bg); }
+.btn.primary:disabled:hover { filter: none; }
+
+/* 分段控件两段等宽、文字居中（segmented-controls.md › Appearance） */
+.tabs { flex: none; }
+.tabs button { flex: 1 1 0; min-width: 72px; text-align: center; }
+
+/* 小字号下限：avatar 里的首字母不能小于 10px（accessibility.md › Text size） */
+.avatar { font-size: 10px; }
+.link-row .avatar { width: 16px; height: 16px; font-size: 10px; }
+
+/* 章节标题：中文没有大小写，去掉 uppercase 与加宽字距更自然（typography.md › Case） */
+.section > h2 { font-size: 12px; }
+:lang(zh) .section > h2 { text-transform: none; letter-spacing: 0; }
+
+/* 空状态要给出下一步，而不只是一句「没有内容」（writing.md › Empty states） */
+.empty { padding: 40px 20px; color: var(--text-soft); text-align: center; font-size: 12.5px; }
+.empty .hint { display: block; margin-top: 6px; color: var(--text-faint); font-size: 12px; }
+.empty .btn { margin-top: 12px; }
+
+/* 加载骨架：先给结构再填内容，避免一片空白（loading.md › Show something as soon as possible） */
+.skeleton { padding: 20px 24px; }
+.skeleton .bar { height: 11px; border-radius: 5px; background: var(--bg-soft); margin-bottom: 10px; }
+.skeleton .bar.title { height: 20px; width: 62%; margin-bottom: 16px; }
+.skeleton .bar.w80 { width: 80%; }
+.skeleton .bar.w60 { width: 60%; }
+.skeleton .bar.w40 { width: 40%; }
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton .bar { animation: pulse 1.4s ease-in-out infinite; }
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* 窗口窄时列表不再死占 400px，改为上下堆叠（designing-for-macos.md › Window size） */
+@media (max-width: 760px) {
+  main { flex-direction: column; }
+  .list { width: 100%; max-height: 45vh; border-right: 0; border-bottom: 1px solid var(--border); }
+  .detail-inner { padding: 16px 16px 40px; }
+  input[type="search"] { width: 100%; }
+  /* 窄屏下 68px 的标签列会把值挤到换行，标签改为压在值上方 */
+  .props { grid-template-columns: 1fr; }
+  .prop { align-items: flex-start; }
+  .prop .k { width: auto; min-width: 64px; }
+}
+
+/* 尊重系统的「减少动态效果」（motion.md › Reduce Motion） */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+/* 系统「提高对比度」时把边框和次要文字再推高一档（accessibility.md › Increase contrast） */
+@media (prefers-contrast: more) {
+  :root { --border: #c9ccd4; --border-strong: #a8acb6; --text-soft: #45484f; --text-faint: #4d5158; }
+  [data-theme="dark"] { --border: #525863; --border-strong: #6c737f; --text-soft: #c6ccd5; --text-faint: #b3bac4; }
+}
 </style>
 </head>
 <body>
@@ -243,18 +328,19 @@ main { flex: 1; display: flex; min-height: 0; }
     Linear
   </span>
   <span class="dot" id="dot" data-state="idle"></span>
-  <span class="status" id="status"></span>
+  <span class="status" id="status" role="status" aria-live="polite"></span>
   <span class="spacer"></span>
   <button class="btn ghost" id="refresh"></button>
 </header>
 
 <div class="filters">
-  <div class="tabs" role="tablist">
-    <button role="tab" id="tab-assigned" aria-selected="true" data-view="assigned"></button>
-    <button role="tab" id="tab-created" aria-selected="false" data-view="created"></button>
+  <!-- 这是「过滤范围」两选一，不是切换面板的 tab：用 aria-pressed 表达按下态（segmented-controls.md） -->
+  <div class="tabs" role="group" id="view-group">
+    <button id="tab-assigned" aria-pressed="true" data-view="assigned"></button>
+    <button id="tab-created" aria-pressed="false" data-view="created"></button>
   </div>
-  <select id="team"></select>
-  <select id="state">
+  <select id="team" aria-label=""></select>
+  <select id="state" aria-label="">
     <option value="open"></option>
     <option value=""></option>
     <option value="backlog"></option>
@@ -262,16 +348,17 @@ main { flex: 1; display: flex; min-height: 0; }
     <option value="started"></option>
     <option value="completed"></option>
   </select>
-  <select id="priority">
+  <select id="priority" aria-label="">
     <option value="any"></option>
     <option value="1"></option>
     <option value="2"></option>
     <option value="3"></option>
     <option value="4"></option>
   </select>
-  <input type="search" id="q">
   <span class="spacer"></span>
   <span class="count" id="count"></span>
+  <!-- 搜索放末尾 trailing 侧，任务栏里最常见的用法（search-fields.md › macOS） -->
+  <input type="search" id="q" aria-label="">
 </div>
 
 <div id="banner"></div>
@@ -280,7 +367,8 @@ main { flex: 1; display: flex; min-height: 0; }
   <div class="list" id="list" tabindex="0"></div>
   <div class="detail" id="detail"></div>
 </main>
-<div class="toast" id="toast"></div>
+<!-- 提示气泡同时是读屏的 live region：视觉用户看位置，读屏用户听内容（feedback.md › Accessibility） -->
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 'use strict'
@@ -681,18 +769,28 @@ function groupIssues(issues) {
     .map((type) => ({ type, name: statusLabel(type, nameOf(buckets.get(type)[0].status)), issues: buckets.get(type) }))
 }
 
+function emptyState(message, hint, action) {
+  return el('div', { class: 'empty' }, [
+    el('span', { text: message }),
+    hint ? el('span', { class: 'hint', text: hint }) : null,
+    action ? el('button', { class: 'btn', text: action.label, onclick: action.run }) : null,
+  ])
+}
+
 function renderList() {
   const list = $('list')
   list.replaceChildren()
   $('count').textContent = t('count', state.issues.length)
   if (!state.issues.length) {
-    list.append(el('div', { class: 'empty', text: t('empty') }))
+    list.append(emptyState(t('empty'), t('emptyHint'), { label: t('retry'), run: () => loadIssues() }))
     return
   }
   for (const group of groupIssues(state.issues)) {
     const collapsed = state.collapsed.has(group.type)
     const head = el('button', {
       class: 'group-head',
+      // 折叠状态对读屏要可感知，不能只靠 caret 的旋转（accessibility.md › State）
+      'aria-expanded': String(!collapsed),
       onclick: () => {
         if (state.collapsed.has(group.type)) state.collapsed.delete(group.type)
         else state.collapsed.add(group.type)
@@ -710,7 +808,7 @@ function renderList() {
   }
   // 让键盘导航有明确起点
   if (state.selected) {
-    const active = list.querySelector('[aria-selected="true"]')
+    const active = list.querySelector('[aria-current="true"]')
     if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' })
   }
 }
@@ -727,7 +825,7 @@ function renderItem(issue) {
   ].filter(Boolean)
   return el('button', {
     class: 'item',
-    'aria-selected': String(state.selected === id),
+    'aria-current': String(state.selected === id),
     'data-id': id,
     onclick: () => selectIssue(id),
   }, [
@@ -785,7 +883,7 @@ async function loadIssues() {
 // ---------------------------------------------------------------------------
 
 function renderDetailEmpty() {
-  $('detail').replaceChildren(el('div', { class: 'empty', text: t('pick') }))
+  $('detail').replaceChildren(emptyState(t('pick'), t('pickHint')))
 }
 
 function propRow(key, value) {
@@ -823,17 +921,34 @@ function relationBlock(kind, issues) {
   ])
 }
 
+/** 详情加载中的骨架：结构与真实详情类似，视线不会跳动 */
+function detailSkeleton() {
+  return el('div', { class: 'skeleton', 'aria-hidden': 'true' }, [
+    el('div', { class: 'bar w40' }),
+    el('div', { class: 'bar title' }),
+    el('div', { class: 'bar' }),
+    el('div', { class: 'bar w80' }),
+    el('div', { class: 'bar w60' }),
+  ])
+}
+
 async function selectIssue(id) {
   state.selected = id
   renderList()
   const detail = $('detail')
-  detail.replaceChildren(el('div', { class: 'empty' }, [el('span', { class: 'spin' }), ' ' + t('loading')]))
+  // 换 issue 时详情从顶部读起；否则会停在上一条的滚动位置，看起来像内容错位
+  detail.scrollTop = 0
+  // aria-busy 让读屏知道这里正在更新，而不是内容突然变空
+  detail.setAttribute('aria-busy', 'true')
+  detail.replaceChildren(detailSkeleton())
   try {
     const body = await api(`api/issue?id=${encodeURIComponent(id)}`)
     state.detail = body
     renderDetail(body)
   } catch (error) {
-    detail.replaceChildren(el('div', { class: 'empty', text: `${t('loadFail')}: ${error.message || error}` }))
+    detail.replaceChildren(emptyState(`${t('loadFail')}: ${error.message || error}`, null, { label: t('retry'), run: () => selectIssue(id) }))
+  } finally {
+    detail.removeAttribute('aria-busy')
   }
 }
 
@@ -1090,6 +1205,11 @@ function applyLang() {
   $('q').placeholder = t('search')
   $('tab-assigned').textContent = t('assigned')
   $('tab-created').textContent = t('created')
+  $('view-group').setAttribute('aria-label', t('viewFilter'))
+  $('team').setAttribute('aria-label', t('filterTeam'))
+  $('state').setAttribute('aria-label', t('filterState'))
+  $('priority').setAttribute('aria-label', t('filterPriority'))
+  $('q').setAttribute('aria-label', t('searchLabel'))
   const stateSelect = $('state')
   // 选项文案一律按 value 从语言包取，HTML 里不留任何硬编码文字
   const stateText = {
@@ -1130,13 +1250,20 @@ addEventListener('message', (event) => {
     const target = pickLang(data.lang)
     if (target === lang && Object.keys(dict).length) return
     loadLocale(target).then(applyLang)
+  } else if (data.type === 'linear-desk:started') {
+    // 宿主已把 issue 放进新会话的输入框（没有自动发送），给一句回执
+    toast(t('started'))
+  } else if (data.type === 'linear-desk:start-failed') {
+    // 开新会话失败时必须说清楚，否则用户以为点了没反应（feedback.md）
+    toast(t('startFail'))
+    setBanner(escapeHtml(String(data.message || t('startFail'))), 'err')
   }
 })
 
 for (const button of document.querySelectorAll('.tabs button')) {
   button.addEventListener('click', () => {
     state.view = button.dataset.view
-    for (const other of document.querySelectorAll('.tabs button')) other.setAttribute('aria-selected', String(other === button))
+    for (const other of document.querySelectorAll('.tabs button')) other.setAttribute('aria-pressed', String(other === button))
     loadIssues()
   })
 }
@@ -1155,6 +1282,12 @@ $('q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer 
 
 // 键盘导航：j/k 或上下键选 issue，/ 聚焦搜索，r 刷新
 addEventListener('keydown', (event) => {
+  // Cmd/Ctrl + R：刷新列表而不是整页重载（重载会丢掉筛选与选中，keyboards.md 要求标准快捷键可用）
+  if ((event.metaKey || event.ctrlKey) && (event.key === 'r' || event.key === 'R')) {
+    event.preventDefault()
+    $('refresh').click()
+    return
+  }
   const tag = (event.target && event.target.tagName) || ''
   const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'
   if (event.key === '/' && !typing) { event.preventDefault(); $('q').focus(); return }

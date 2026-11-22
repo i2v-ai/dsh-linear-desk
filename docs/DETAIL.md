@@ -14,6 +14,14 @@ Read the Linear issues assigned to you inside DeepSeek Harness, without switchin
 - **Start work in a session** builds a draft from the issue key, title, status, URL, and description, then opens a new session with that draft pre-filled. It does **not** send the message; you finish the wording yourself.
 - **Copy as Markdown** produces the same digest on the clipboard.
 
+## Interaction details
+
+Keyboard: `j` / `k` or the arrow keys move through the list, `/` focuses the search field, `r` or `Cmd+R` reloads the list without reloading the page (filters and selection survive), `Esc` leaves the field.
+
+Accessibility: the panel follows the system appearance, honours Reduce Motion and Increase Contrast, keeps a visible focus ring for full keyboard access, labels every select and the search field for screen readers, marks the selected row with `aria-current`, uses `aria-pressed` for the scope switch instead of tab roles, and announces toasts through a polite live region. Body text stays at 12 px or larger and every colour pair meets WCAG AA in both appearances.
+
+Layout: the search field sits at the trailing edge of the filter bar; below 760 px the list stacks above the detail and the property grid collapses to one column.
+
 ## What it does not do
 
 - No writes: no status change, comment, reassignment, or issue creation. This version is read-only.

@@ -42,6 +42,17 @@ No browser tab, no bookmark. Open the desk from the sidebar, scan the issues ass
 - **Start work in a session** turns the issue into a session draft. The draft is pre-filled, never auto-sent.
 - **Copy as Markdown** produces a pasteable digest for a prompt or a handoff note.
 
+Keyboard, without leaving the list:
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` or `Down` / `Up` | Move through the issue list |
+| `/` | Focus the search field |
+| `r`, `Cmd+R`, `Ctrl+R` | Reload the list without reloading the page (filters and selection survive) |
+| `Esc` | Leave the search field |
+
+The panel follows the system appearance, honours Reduce Motion and Increase Contrast, exposes every control to a screen reader, and keeps focus rings visible for full keyboard access.
+
 ## Requirements
 
 Node.js 20 or newer, and DeepSeek Harness 0.2.1-rc.5 or newer. A Linear account is the only extra piece — no repository checkout, no `npx`, no OAuth app of your own.
