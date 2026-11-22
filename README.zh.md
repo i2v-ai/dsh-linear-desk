@@ -14,6 +14,7 @@
 </p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/dsh-linear-desk"><img alt="npm version" src="https://img.shields.io/npm/v/dsh-linear-desk?style=flat-square&label=npm"></a>
   <img alt="DSH bundle" src="https://img.shields.io/badge/DSH-bundle-6366f1?style=flat-square">
   <img alt="Languages" src="https://img.shields.io/badge/languages-English%20·%20中文-0ea5e9?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square">

@@ -9,11 +9,13 @@ How this plugin reaches users, and what is left before each step can run.
 | Repository | Public: <https://github.com/i2v-ai/dsh-linear-desk> |
 | Install from source | Works: `plugin_manager install_bundle /absolute/path/to/dsh-linear-desk` |
 | Install from git | Works: `plugin_manager install_bundle github:i2v-ai/dsh-linear-desk` |
-| npm | Package name `dsh-linear-desk` is still free; nothing published |
+| npm | Published: `dsh-linear-desk@0.1.0` (23 files, 149.3 kB tarball) |
 | Marketplace listings | Not listed anywhere yet |
 | Storefront metadata | `icon`, `screenshots.json`, bilingual README in place |
 
 ## 1. npm
+
+Published as `dsh-linear-desk@0.1.0` on 2026-11-22.
 
 Publishing matters for two reasons, and neither is "discovery":
 
@@ -25,14 +27,28 @@ Publishing matters for two reasons, and neither is "discovery":
 
 ```bash
 cd /path/to/dsh-linear-desk
-npm login              # needs the publishing account, plus a 2FA code
+npm login              # needs the publishing account
 npm publish            # publishConfig.access is already "public"
 ```
+
+This account runs `auth-and-writes` 2FA, so `npm publish` without a bypass-capable token
+opens a browser approval flow and then fails with `EOTP` in a non-interactive shell. Two ways
+to publish:
+
+- Store a **Granular Access Token** with *Bypass 2FA* checked, scoped to `dsh-linear-desk`
+  (read + write), in `~/.npmrc` as `//registry.npmjs.org/:_authToken=…`. Then
+  `npm publish` just works. Note such tokens cannot unpublish — that still needs an OTP.
+- Or stage the upload, then approve it with a live OTP:
+  `npx -y npm@latest stage publish` followed by `npx -y npm@latest stage approve <stage-id>`.
+
+A staged publish leaves a `0.0.0-stage` placeholder version behind; it is deprecated so
+`npm install dsh-linear-desk` resolves `latest` (`0.1.0`) instead.
 
 Then confirm:
 
 ```bash
 npm view dsh-linear-desk version
+npm pack dsh-linear-desk@0.1.0             # 23 files, shasum 1da788e…
 plugin_manager install_bundle dsh-linear-desk     # registry spec, no path
 ```
 
@@ -120,8 +136,8 @@ only). Two placement options, cheapest first:
 
 | When | What |
 | --- | --- |
-| Now | Repository is public and installable from git |
-| After `npm login` | Publish `dsh-linear-desk@0.1.0`, switch the README install command to the registry spec |
+| Done | Repository public and installable from git |
+| Done | Published `dsh-linear-desk@0.1.0`; README installs from the registry spec |
 | 2026-11-23T07:52Z+ | Open the awesome-dsh-plugin entry |
 | After the catalog merge | dshopen request, then dshfind contact |
 | Any later version | Bump, publish, and leave the catalog alone — it reads npm and the repository |
