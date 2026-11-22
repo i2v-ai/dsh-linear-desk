@@ -306,6 +306,17 @@ main { flex: 1; display: flex; min-height: 0; }
   .prop .k { width: auto; min-width: 64px; }
 }
 
+/* 列表骨架行：首屏没有数据时先占位，避免空白等一秒（loading.md） */
+.list-skeleton { padding: 10px 12px; }
+.list-skeleton .row-skeleton { display: flex; gap: 8px; align-items: flex-start; padding: 9px 0; }
+.list-skeleton .dot { width: 13px; height: 13px; border-radius: 50%; background: var(--bg-soft); flex: none; margin-top: 2px; }
+.list-skeleton .lines { flex: 1; min-width: 0; }
+.list-skeleton .bar { height: 10px; border-radius: 5px; background: var(--bg-soft); margin-bottom: 7px; }
+.list-skeleton .bar.short { width: 46%; margin-bottom: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .list-skeleton .bar, .list-skeleton .dot { animation: pulse 1.4s ease-in-out infinite; }
+}
+
 /* 尊重系统的「减少动态效果」（motion.md › Reduce Motion） */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
@@ -437,7 +448,7 @@ async function loadLanguages() {
   return languages
 }
 
-const state = { view: 'assigned', issues: [], selected: null, toolsReady: true, collapsed: new Set(), detail: null }
+const state = { view: 'assigned', issues: [], selected: null, toolsReady: true, collapsed: new Set(), detail: null, loadedAt: 0 }
 
 const $ = (id) => document.getElementById(id)
 const el = (tag, props, children) => {
@@ -777,6 +788,18 @@ function emptyState(message, hint, action) {
   ])
 }
 
+/** 列表首次加载的占位行：结构与真实行一致，数据到达时不会跳动 */
+function listSkeleton() {
+  const rows = []
+  for (let i = 0; i < 6; i += 1) {
+    rows.push(el('div', { class: 'row-skeleton' }, [
+      el('div', { class: 'dot' }),
+      el('div', { class: 'lines' }, [el('div', { class: 'bar' }), el('div', { class: 'bar short' })]),
+    ]))
+  }
+  return el('div', { class: 'list-skeleton', 'aria-hidden': 'true' }, rows)
+}
+
 function renderList() {
   const list = $('list')
   list.replaceChildren()
@@ -846,6 +869,8 @@ function renderItem(issue) {
 
 async function loadIssues() {
   setStatus('idle', t('connecting'))
+  // 还没有任何数据时先摆骨架行；已有内容就保持原样，刷新不闪屏
+  if (!state.issues.length) $('list').replaceChildren(listSkeleton())
   const issueState = $('state').value
   // `open`（未完成）由宿主拿回结果后本地过滤，所以要多取一些才不至于漏掉未完成项。
   const limit = issueState === 'open' ? '100' : '50'
@@ -860,6 +885,7 @@ async function loadIssues() {
   try {
     const body = await api(`api/issues?${params.toString()}`)
     state.issues = body.issues || []
+    state.loadedAt = Date.now()
     renderList()
     setStatus('ok', t('ok'))
     const stillThere = state.selected && state.issues.some((issue) => issueId(issue) === state.selected)
@@ -873,6 +899,8 @@ async function loadIssues() {
   } catch (error) {
     state.issues = []
     renderList()
+    // 列表本身说清失败原因并给出重试，不能只靠顶部横幅（feedback.md › Errors）
+    $('list').replaceChildren(emptyState(t('loadFail'), String(error.message || error), { label: t('retry'), run: () => loadIssues() }))
     setStatus('err', t('loadFail'))
     setBanner(escapeHtml(String(error.message || error)), 'err')
   }
@@ -1121,12 +1149,14 @@ async function checkHealth() {
       else setBanner(escapeHtml(t('toolMissing')), 'err')
       return
     }
-    const server = health.server && health.server.status
-    const kind = server && server.kind ? server.kind : 'unknown'
-    if (kind === 'connected') { setStatus('ok', t('ok')); setBanner('') }
-    else if (kind === 'failed' || kind === 'disabled') { setStatus('err', t('noTool')); setBanner(escapeHtml(t('toolMissing')), 'err') }
+    // 工具已经注册好了就等于能用，不必依赖 mcpManager 里是否登记过这个服务：
+    // 用户在设置里自己配的 mcp-linear 由 profile 直接挂载，本来就不在 mcpManager 的名单里。
+    if (!health.server) { setStatus('ok', t('ok')); setBanner(''); return }
+    const server = health.server.status
+    const kind = server && server.kind ? server.kind : 'connected'
+    if (kind === 'failed' || kind === 'disabled') { setStatus('err', t('noTool')); setBanner(escapeHtml(t('toolMissing')), 'err') }
     else if (kind === 'waiting-credentials') { setStatus('warn', t('waitingKey')); showKeyBanner() }
-    else { setStatus('warn', t('serverState', kind)) }
+    else { setStatus('ok', t('ok')); setBanner('') }
   } catch {
     setStatus('err', t('loadFail'))
   }
@@ -1305,6 +1335,19 @@ addEventListener('keydown', (event) => {
   const next = index < 0 ? (step > 0 ? 0 : ids.length - 1) : Math.min(ids.length - 1, Math.max(0, index + step))
   selectIssue(ids[next])
 })
+
+// 面板被切回前台 / 窗口重新获得焦点时，如果数据已超过 60 秒就悄悄刷新一次。
+// 面板常长时间挂在后台，回来看旧数据比多一次请求更糟；
+// 但也不做定时轮询——一个 MCP 连接要和 agent 共用。
+const STALE_AFTER_MS = 60_000
+function refreshIfStale() {
+  if (document.visibilityState === 'hidden') return
+  if (Date.now() - state.loadedAt < STALE_AFTER_MS) return
+  checkHealth()
+  loadIssues()
+}
+addEventListener('focus', refreshIfStale)
+addEventListener('visibilitychange', refreshIfStale)
 
 // 启动顺序：先问宿主支持哪些语言，再加载语言包并渲染文案，最后才取数据，
 // 这样首屏不会出现「先英文后中文」的闪烁。
