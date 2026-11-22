@@ -44,7 +44,6 @@
   "laterKey": "Not now",
   "keySaved": "API key saved, connecting to Linear",
   "keyInvalid": "Could not save the API key: {s}",
-  "serverState": "MCP status: {s}",
   "allTeams": "All teams",
   "search": "Search title or description… ( / )",
   "assigned": "Assigned to me",

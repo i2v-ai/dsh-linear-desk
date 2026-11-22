@@ -44,7 +44,6 @@
   "laterKey": "稍后再说",
   "keySaved": "已保存 API key，正在连接 Linear",
   "keyInvalid": "API key 保存失败：{s}",
-  "serverState": "MCP 状态：{s}",
   "allTeams": "全部团队",
   "search": "搜索标题或描述… ( / )",
   "assigned": "指派给我",

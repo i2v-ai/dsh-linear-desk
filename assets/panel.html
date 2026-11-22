@@ -43,7 +43,8 @@
   --text-faint: #9198a2;
   --accent: #8b93f0;
   --accent-soft: #262a3d;
-  --on-accent: #ffffff;
+  /* 深色主题的 accent 是浅靛蓝，白字只有 2.79:1；改用近黑文字，6.37:1 */
+  --on-accent: #14161b;
   --ok: #5dbb84;
   --warn: #e0b055;
   --err: #ef7168;
@@ -113,7 +114,7 @@ select:focus, input[type="search"]:focus { outline: 2px solid var(--accent-soft)
    用 :focus-visible 而不是 :focus，鼠标点击不画环，键盘 Tab 一定画。 */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 6px; }
 .item:focus-visible, .link-row:focus-visible, .group-head:focus-visible { outline-offset: -2px; }
-input[type="search"] { width: 170px; }
+input[type="search"] { width: 210px; }
 .count { color: var(--text-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* 主体 */
@@ -267,7 +268,7 @@ main { flex: 1; display: flex; min-height: 0; }
 
 /* 分段控件两段等宽、文字居中（segmented-controls.md › Appearance） */
 .tabs { flex: none; }
-.tabs button { flex: 1 1 0; min-width: 72px; text-align: center; }
+.tabs button { flex: 1 1 0; min-width: 72px; text-align: center; white-space: nowrap; }
 
 /* 小字号下限：avatar 里的首字母不能小于 10px（accessibility.md › Text size） */
 .avatar { font-size: 10px; }
