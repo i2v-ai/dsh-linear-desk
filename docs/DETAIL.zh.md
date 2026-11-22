@@ -38,11 +38,16 @@
 
 跨工作区的父票（例如 `DAW-306`）用当前凭据读不到，面板降级成只显示 ID 链接，而不是让整个详情报错。
 
-## 依赖与失败表现
+## 连接与失败表现
 
-依赖 profile 里已装的 `mcp-linear`（`@deepseek-ai/dsh-mcp-client`，`serverName: linear`）。
+工作台会用它能找到的第一条可用 Linear 连接：
 
-如果 MCP 没连上（例如宿主进程的 PATH 里找不到 `npx`，日志里会出现 `mcp-client(linear): ... spawn npx ENOENT`），面板顶部会变成红色状态并给出说明，而不是白屏。此时到「设置 → 插件」检查 mcp-linear，或重启宿主让它重新连接。
+1. 你自己的 `mcp-linear`（`serverName: linear`，工具名 `mcp__linear__*`）。它连着，工作台就不会再开第二条连接。
+2. 插件自己注册的 `linear_desk`，指向 Linear 官方只读端点 `https://mcp.linear.app/mcp/readonly`。只有在完全找不到可用 Linear 工具、且名字没被占用时才会注册；注册延后五秒，避免冷启动时把「正在连接」误判成「没有连接」。
+
+第二条路径用 `${credential:LINEAR_API_KEY}` 认证。还没存 key 时，面板顶部会渲染一个输入框，值 POST 给宿主后经凭据服务写入，再由 MCP 传输层注入请求头；面板不保存、不回显。凭据变更后 server 会自动重连，因为 MCP 客户端监听了 `credentials/reference-updated`。
+
+如果一条连接都建立不起来，面板顶部会变成红色状态并说明缺什么，而不是白屏。
 
 ## 多语言
 

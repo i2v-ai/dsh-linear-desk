@@ -211,6 +211,18 @@ main { flex: 1; display: flex; min-height: 0; }
   font-size: 12px;
 }
 .banner[data-kind="err"] { border-color: var(--err); }
+.banner .row { display: flex; align-items: center; gap: 8px; margin-top: 7px; flex-wrap: wrap; }
+.banner input {
+  flex: 1 1 180px; min-width: 140px; padding: 5px 8px; font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px;
+}
+.banner input:focus { outline: none; border-color: var(--accent); }
+.banner button {
+  padding: 5px 10px; font: inherit; cursor: pointer; border-radius: 6px;
+  border: 1px solid var(--border-strong); background: var(--bg); color: var(--text);
+}
+.banner button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.banner button:disabled { opacity: .55; cursor: default; }
 .spin { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: sp .7s linear infinite; vertical-align: -1px; }
 @keyframes sp { to { transform: rotate(360deg); } }
 .toast {
@@ -465,8 +477,16 @@ function avatar(name) {
   return el('span', { class: 'avatar', text: initials })
 }
 
-async function api(path) {
-  const res = await fetch(path, { headers: { 'x-linear-desk-lang': lang }, credentials: 'same-origin' })
+/**
+ * 调宿主的同源接口。默认 GET；传 init 可覆盖方法/请求体（写凭据用 POST）。
+ * 非 2xx 一律抛错，错误文案优先用宿主返回的 error 字段。
+ */
+async function api(path, init) {
+  const options = init ? { ...init } : {}
+  options.credentials = 'same-origin'
+  options.headers = { 'x-linear-desk-lang': lang, ...(options.headers || {}) }
+  if (options.body !== undefined) options.headers['content-type'] = 'application/json'
+  const res = await fetch(path, options)
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body && body.error ? body.error : `HTTP ${res.status}`)
   return body
@@ -978,19 +998,74 @@ async function checkHealth() {
   try {
     const health = await api('api/health')
     state.toolsReady = Boolean(health.registered)
+    const credential = health.credential || null
     if (!health.registered) {
       setStatus('err', t('noTool'))
-      setBanner(escapeHtml(t('toolMissing')), 'err')
+      // 工具没就绪分两种：没填 API key（能自救）和连接坏了（只能去设置里看）
+      if (credential && credential.writable && !credential.configured) showKeyBanner()
+      else setBanner(escapeHtml(t('toolMissing')), 'err')
       return
     }
     const server = health.server && health.server.status
     const kind = server && server.kind ? server.kind : 'unknown'
     if (kind === 'connected') { setStatus('ok', t('ok')); setBanner('') }
     else if (kind === 'failed' || kind === 'disabled') { setStatus('err', t('noTool')); setBanner(escapeHtml(t('toolMissing')), 'err') }
+    else if (kind === 'waiting-credentials') { setStatus('warn', t('waitingKey')); showKeyBanner() }
     else { setStatus('warn', t('serverState', kind)) }
   } catch {
     setStatus('err', t('loadFail'))
   }
+}
+
+/**
+ * 凭据引导：宿主里没有可用的 Linear 工具时，让用户就地填 Linear API key。
+ * key 直接 POST 给宿主存进凭据库，再由 MCP 连接的 ${credential:LINEAR_API_KEY}
+ * 模板注入请求头；面板自己不保存、不回显。
+ */
+function showKeyBanner() {
+  const box = $('banner')
+  const wrap = el('div', { class: 'banner', 'data-kind': 'warn' })
+  wrap.append(el('div', { html: escapeHtml(t('needKey')) }))
+
+  const row = el('div', { class: 'row' })
+  const input = el('input', {
+    type: 'password',
+    autocomplete: 'off',
+    spellcheck: 'false',
+    placeholder: t('keyPlaceholder'),
+    'aria-label': t('keyLabel'),
+  })
+  const save = el('button', { class: 'primary', type: 'button', text: t('saveKey') })
+  const skip = el('button', { type: 'button', text: t('laterKey') })
+  row.append(input, save, skip)
+  wrap.append(row)
+  box.replaceChildren(wrap)
+
+  const submit = async () => {
+    const value = input.value.trim()
+    if (!value) { input.focus(); return }
+    save.disabled = true
+    skip.disabled = true
+    save.textContent = t('savingKey')
+    try {
+      await api('api/credential', { method: 'POST', body: JSON.stringify({ value }) })
+      input.value = ''
+      toast(t('keySaved'))
+      await checkHealth()
+      if (state.toolsReady) { await loadBootstrap(); await loadIssues() }
+    } catch (error) {
+      save.disabled = false
+      skip.disabled = false
+      save.textContent = t('saveKey')
+      toast(t('keyInvalid', String((error && error.message) || error)))
+    }
+  }
+  save.addEventListener('click', submit)
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); submit() }
+  })
+  skip.addEventListener('click', () => { setBanner(escapeHtml(t('toolMissing')), 'err') })
+  input.focus()
 }
 
 async function loadBootstrap() {

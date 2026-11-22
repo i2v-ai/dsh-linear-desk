@@ -27,7 +27,7 @@
     "CONTRIBUTING.md"
   ],
   "scripts": {
-    "test": "node test/host-check.mjs && node test/locale-check.mjs",
+    "test": "node test/host-check.mjs && node test/fallback-check.mjs && node test/locale-check.mjs",
     "check": "node --check lib/index.js && node --check lib/client.js"
   },
   "dsh": {

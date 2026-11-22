@@ -44,23 +44,28 @@ No browser tab, no bookmark. Open the desk from the sidebar, scan the issues ass
 
 ## Requirements
 
-Node.js 20 or newer, plus a DeepSeek Harness profile where the Linear MCP server is configured (see [Dependencies](#dependencies)).
+Node.js 20 or newer, and DeepSeek Harness 0.2.1-rc.5 or newer. A Linear account is the only extra piece — no repository checkout, no `npx`, no OAuth app of your own.
 
 ## Install
 
-```bash
-git clone https://github.com/i2v-ai/dsh-linear-desk.git
-```
-
-Then, inside DeepSeek Harness, install the bundle by pointing `plugin_manager` at the checkout:
+Install straight from the npm registry, inside DeepSeek Harness:
 
 ```
-plugin_manager install_bundle /absolute/path/to/dsh-linear-desk
+plugin_manager install_bundle dsh-linear-desk
 ```
 
-The install may report `application: "restart-required"` with `restartReason: "unmanaged-plugin"` even though the plugin is already live. Verify with `plugin_manager list_plugins` — the entry `include:linear-desk` should show `enabled: true` and `fiberPhase: active`.
+The install may report `application: "restart-required"` with `restartReason: "unmanaged-plugin"` even though the plugin is already live. Verify with `plugin_manager list_plugins` — the entry `include:linear-desk` should show `enabled: true` and `fiberPhase: active`. A page refresh is enough to see the sidebar entry.
 
-After editing Host code, toggle the plugin off and on again to hot-reload:
+Other supported forms:
+
+| Source | Command |
+| --- | --- |
+| npm registry | `plugin_manager install_bundle dsh-linear-desk` |
+| Pinned version | `plugin_manager install_bundle dsh-linear-desk@0.1.0` |
+| Git checkout | `plugin_manager install_bundle github:i2v-ai/dsh-linear-desk` |
+| Local path | `plugin_manager install_bundle /absolute/path/to/dsh-linear-desk` |
+
+After editing Host code in a local checkout, toggle the plugin off and on again to hot-reload:
 
 ```
 plugin_manager set_plugin include:linear-desk enabled=false
@@ -69,9 +74,16 @@ plugin_manager set_plugin include:linear-desk enabled=true
 
 Replacing the installed JavaScript itself needs a host restart.
 
-## Dependencies
+## Connecting Linear
 
-The plugin reuses the `mcp-linear` server already configured in the profile (`@deepseek-ai/dsh-mcp-client`, `serverName: linear`). It never opens its own Linear connection, so OAuth and token refresh stay in `mcp-linear`.
+The panel needs a working Linear MCP connection. It picks one, in this order:
+
+1. **An `mcp-linear` you already run** (`serverName: linear`, tools named `mcp__linear__*`). If it is connected, the desk uses it and never opens a second connection.
+2. **A connection the plugin registers itself** (`serverName: linear_desk`, Linear's official read-only endpoint `https://mcp.linear.app/mcp/readonly`). It is registered only when no usable Linear tool exists and the name is free, so it never fights your own setup.
+
+When the second path is used and no key is stored yet, the panel header shows an input for a Linear API key. Create one at **Linear → Settings → Security & access → Personal API keys**, paste it, and the desk connects immediately. The key goes into the host credential store under `LINEAR_API_KEY` and is injected through the `${credential:LINEAR_API_KEY}` transport template; the panel never stores or echoes it.
+
+Prefer wiring the connection yourself? Add this to your profile's `cordis.patch.yml` instead, and the plugin will just use it:
 
 ```yaml
 - insert:
@@ -79,34 +91,37 @@ The plugin reuses the `mcp-linear` server already configured in the profile (`@d
       name: '@deepseek-ai/dsh-mcp-client'
       config:
         serverName: linear
-        transport: stdio
-        command: npx
-        args: ['-y', 'mcp-remote', 'https://mcp.linear.app/mcp']
+        transport: streamable-http
+        url: https://mcp.linear.app/mcp/readonly
+        headers:
+          Authorization: Bearer ${credential:LINEAR_API_KEY}
 ```
 
-If the tools are missing, the panel header shows a red status and an explanation instead of an empty page. A common cause is `spawn npx ENOENT` in the host log: the desktop app cannot resolve `npx` on `PATH`. Check `mcp-linear` under **Settings → Plugins**, or restart the host to reconnect.
+If no connection can be established, the panel header shows a red status and an explanation instead of an empty page.
 
 ## Panel API
 
-The panel page calls these routes on the host half. Everything is read-only in this version.
+The panel page calls these routes on the host half. Issue data is read-only in this version; the only write route stores a Linear API key.
 
 | Route | Backed by MCP tool | Notes |
 | --- | --- | --- |
 | `GET /linear-desk/` | — | Panel page |
-| `GET /linear-desk/api/health` | — | Reads `tools` / `mcpManager` registration state |
+| `GET /linear-desk/api/health` | — | Tool prefix in use, MCP server state, credential state |
 | `GET /linear-desk/api/locales` | — | Returns `{ locales, fallback }` |
 | `GET /linear-desk/api/bootstrap` | `whoami`, `list_teams` | Workspace and team list |
 | `GET /linear-desk/api/issues` | `list_issues` | `view`, `team`, `state`, `priority`, `query`, `limit` |
 | `GET /linear-desk/api/issue?id=` | `get_issue`, `list_comments` | Plus parent and sub-issue lookups |
+| `POST /linear-desk/api/credential` | — | `{ "value": "lin_api_…" }` stores `LINEAR_API_KEY`; an empty value unsets it |
 
 `state=open` is a value the panel synthesises: Linear's `state` argument accepts a single state, so the host fetches a larger page and filters out completed and canceled issues locally.
 
 ## Capability and limits
 
-- Read-only. No status change, comment, assignment, or issue creation in this version.
+- Read-only issue data. No status change, comment, assignment, or issue creation in this version. The only write is the API key route above.
+- The desk picks the first usable connection: your own `mcp-linear` if it is connected, otherwise a `linear_desk` server the plugin registers against Linear's read-only endpoint.
 - In-memory cache only: lists for 60 seconds, details for 30 seconds, workspace bootstrap for 10 minutes.
 - Panel calls run through `ctx.tools.execute` without an agent or a session log, so nothing lands in a conversation trajectory.
-- One MCP connection is shared with the agent. Refreshes are throttled because `mcp-remote` is single-client.
+- One MCP connection is shared with the agent. Refreshes are throttled because a single MCP server process serves both.
 - Issues in another workspace (for example a `DAW-` parent) resolve to an ID link only — the current credentials cannot read them.
 
 ## Languages

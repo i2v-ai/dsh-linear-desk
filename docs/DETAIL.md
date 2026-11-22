@@ -38,11 +38,16 @@ The **Open** filter (`state=open`) is synthesised by the panel. Linear's `state`
 
 Parent issues in another workspace (a `DAW-306` parent, for example) cannot be read with the current credentials. The panel degrades to an ID link instead of failing the whole detail view.
 
-## Dependencies and failure behaviour
+## Connection and failure behaviour
 
-Requires `mcp-linear` in the profile (`@deepseek-ai/dsh-mcp-client`, `serverName: linear`).
+The desk uses the first usable Linear connection it finds:
 
-When the MCP server is not connected — for example the host process cannot find `npx`, logged as `mcp-client(linear): ... spawn npx ENOENT` — the panel header turns red and shows an explanation rather than an empty page. The fix is to check `mcp-linear` under **Settings → Plugins**, or restart the host so it reconnects.
+1. Your own `mcp-linear` (`serverName: linear`, tools named `mcp__linear__*`). When it is connected the desk never opens a second connection.
+2. A `linear_desk` server the plugin registers itself, pointing at Linear's official read-only endpoint `https://mcp.linear.app/mcp/readonly`. It is registered only when no usable Linear tool exists and the name is free. Registration is deferred by five seconds so a cold start does not mistake a connecting `mcp-linear` for a missing one.
+
+The second path authenticates with `${credential:LINEAR_API_KEY}`. When that key is not stored yet, the panel header renders an input for it; the value is posted to the host, written through the credentials provider, and injected into the transport headers. The panel never stores or echoes the key. The server reconnects on its own when the credential changes, because the MCP client listens for `credentials/reference-updated`.
+
+If no connection can be established the panel header turns red and explains what is missing rather than showing an empty page.
 
 ## Languages
 
